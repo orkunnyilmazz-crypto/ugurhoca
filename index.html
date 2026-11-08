@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeslaTV Portal</title>
+    <style>
+        :root { --bg: #0b0f19; --card: #161e2e; --accent: #3b82f6; --text: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        h1 { font-size: 1.5rem; margin-bottom: 15px; text-align: center; color: #fff; }
+        .container { display: flex; flex: 1; gap: 20px; overflow: hidden; }
+        .sidebar { width: 350px; background: var(--card); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .player-box { flex: 1; background: var(--card); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); position: relative; }
+        video, iframe { width: 100%; height: 100%; border: none; background: #000; }
+        input, button { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #374151; background: #1f2937; color: #fff; font-size: 1rem; box-sizing: border-box; }
+        button { background: var(--accent); border: none; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .channel-list { flex: 1; overflow-y: auto; margin-top: 10px; }
+        .channel-item { padding: 12px; margin-bottom: 8px; background: #1f2937; border-radius: 8px; cursor: pointer; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .channel-item:hover { background: #374151; }
+        .channel-item.active { border-left: 4px solid var(--accent); background: #2563eb33; }
+    </style>
+</head>
+<body>
+    <h1>ORKUN TeslaTV </h1>
+    <div class="container">
+        <div class="sidebar">
+            <input type="text" id="searchBox" placeholder="Kanal ara..." oninput="filterChannels()">
+            <div class="channel-list" id="channelList">
+                <div style="text-align:center; color:#9ca3af; margin-top:20px;">Kanallar yükleniyor...</div>
+            </div>
+        </div>
+        <div class="player-box">
+            <div id="playerContainer" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#9ca3af;">
+                Oynatılacak kanal seçilmedi
+            </div>
+        </div>
+    </div>
+    <script>
+        let channels = [];
+       
+        // Sayfa açıldığında sunucudaki list.m3u dosyasını otomatik çek
+        window.onload = function() {
+            fetch('list.m3u')
+                .then(response => response.text())
+                .then(data => parseM3U(data))
+                .catch(err => {
+                    document.getElementById('channelList').innerHTML = '<div style="text-align:center; color:#ef4444;">list.m3u dosyası bulunamadı!</div>';
+                });
+        };
+
+        function parseM3U(content) {
+            channels = [];
+            const lines = content.split('\n');
+            let currentTitle = "Kanal";
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line.startsWith('#EXTINF:')) {
+                    let parts = line.split(',');
+                    if (parts.length > 1) currentTitle = parts[1];
+                } else if (line && !line.startsWith('#')) {
+                    channels.push({ title: currentTitle, url: line });
+                    currentTitle = "Kanal " + (channels.length + 1);
+                }
+            }
+            renderChannels(channels);
+        }
+        function renderChannels(list) {
+            const container = document.getElementById('channelList');
+            container.innerHTML = '';
+            if (list.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#9ca3af;">Kanal bulunamadı.</div>';
+                return;
+            }
+            list.forEach((ch, index) => {
+                const div = document.createElement('div');
+                div.className = 'channel-item';
+                div.innerText = ch.title;
+                div.onclick = () => playChannel(ch, div);
+                container.appendChild(div);
+            });
+        }
+        function playChannel(ch, element) {
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            const box = document.getElementById('playerContainer');
+            box.innerHTML = `<video src="${ch.url}" controls autoplay playsinline style="width:100%; height:100%;"></video>`;
+        }
+        function filterChannels() {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            const filtered = channels.filter(ch => ch.title.toLowerCase().includes(query));
+            renderChannels(filtered);
+        }
+    </script>
+</body>
+</html>
